@@ -1,15 +1,5 @@
-/**
- * wmsMapType.js
- *
- * Author: Beau Grantham
- * http://www.nologs.org/
- * https://github.com/beaugrantham/
- *
- * See here for license terms:
- * http://opensource.org/licenses/MIT
- */
-
-function WmsMapType(name, url, params, options ,type="geoserver") {
+//UPDATE BY AUNWA007
+function WmsMapType(name, url, params, options, type = "geoserver") {
     var TILE_SIZE = 256;
     var EARTH_RADIUS_IN_METERS = 6378137;
     var CIRCUMFERENCE = 2 * Math.PI * EARTH_RADIUS_IN_METERS;
@@ -68,7 +58,7 @@ function WmsMapType(name, url, params, options ,type="geoserver") {
     /*
      * Prototype getTile method.
      */
-    this.getTile = function(coord, zoom, ownerDocument) {
+    this.getTile = function (coord, zoom, ownerDocument) {
         if (!this.params['layers'].length) {
             console.log("[WmsMapType] Required param 'layers' is empty");
             return ownerDocument.createElement('div'); // empty div
@@ -102,14 +92,15 @@ function WmsMapType(name, url, params, options ,type="geoserver") {
      * Add this MapType to a map at the given index, or on top of other layers
      * if index is omitted.
      */
-    this.addToMap = function(map, index) {
+    this.addToMap = async function (map, index) {
         console.log(this)
         if (index !== undefined) {
             map.overlayMapTypes.insertAt(Math.min(index, map.overlayMapTypes.getLength()), this);
         } else {
-            if(this.type == "geoserver"){
-            map.overlayMapTypes.push(this);
-            }else{
+            if (this.type == "geoserver" || this.type == null) {
+                await map.overlayMapTypes.push(this);
+                this.zoomToWms(map);
+            } else {
                 this.Arcgiswms(map);
             }
 
@@ -119,13 +110,13 @@ function WmsMapType(name, url, params, options ,type="geoserver") {
     /*
      * Remove this MapType from a map.
      */
-    this.removeFromMap = function(map) {
+    this.removeFromMap = function (map) {
         var overlayTypes = map.overlayMapTypes;
 
         for (var i = 0; i < overlayTypes.getLength(); i++) {
             var element = overlayTypes.getAt(i);
-      /*       console.log("element",element.name)
-            console.log("thisis",this.name) */
+            /*       console.log("element",element.name)
+                  console.log("thisis",this.name) */
             if (element.name !== undefined && element.name === this.name) {/*ตอนแรกเช็คแค่ element อย่างเดียว*/
                 overlayTypes.removeAt(i);
                 break;
@@ -137,7 +128,7 @@ function WmsMapType(name, url, params, options ,type="geoserver") {
     /*
      * Change opacity on demand.
      */
-    this.setOpacity = function(opacity) {
+    this.setOpacity = function (opacity) {
         this.options['opacity'] = opacity;
 
         for (var i in this.tiles) {
@@ -145,7 +136,7 @@ function WmsMapType(name, url, params, options ,type="geoserver") {
         }
     }
 
-    this.zoomToWms = function(map) {
+    this.zoomToWms = function (map) {
 
         if (!this.params['layers'].length) {
             console.log("[WmsMapType] Required param 'layers' is empty");
@@ -179,7 +170,8 @@ function WmsMapType(name, url, params, options ,type="geoserver") {
         var thisWms = this;
         url = encodeURIComponent(url);
 
-        angular.element('#ang-controller').scope().GetWmsBoundary(url, this.params['layers']);
+        GetWmsBoundary(url, this.params['layers'], map);
+        // angular.element('#ang-controller').scope().GetWmsBoundary(url, this.params['layers']);
         //console.log(angular.element('#ang-controller').scope())
         //console.log(url, this.params['layers'])
         //$('#map-left').scope().GetWmsBoundary(url, this.params['layers']);
@@ -188,138 +180,187 @@ function WmsMapType(name, url, params, options ,type="geoserver") {
         data.url = url;
 
         var settings = {
-        	"url": "http://localhost:58328/api/Map/GetWmsBoundary",
-        	"method": "GET",
-        	"headers": {
-        		"Content-Type": "application/json"
-        	},
-        	"data": data,
+            "url": "http://localhost:58328/api/Map/GetWmsBoundary",
+            "method": "GET",
+            "headers": {
+                "Content-Type": "application/json"
+            },
+            "data": data,
         };
 
         $.ajax(settings).success(function (html) {
-        	if (html != "" & html != null && html.indexOf('version') > -1) {
-        		var wmsData = new WMSCapabilities().parse(html);
+            if (html != "" & html != null && html.indexOf('version') > -1) {
+                var wmsData = new WMSCapabilities().parse(html);
 
-        		if (wmsData != null && wmsData.Capability != null && wmsData.Capability.Layer != null && wmsData.Capability.Layer.Layer != null) {
-        			var layerList = wmsData.Capability.Layer.Layer;
+                if (wmsData != null && wmsData.Capability != null && wmsData.Capability.Layer != null && wmsData.Capability.Layer.Layer != null) {
+                    var layerList = wmsData.Capability.Layer.Layer;
 
-        			for (var i = 0; i < layerList.length; ++i) {
-        				if (layerList[i].Name == thisWms.params['layers']) {
-        					if (layerList[i].LatLonBoundingBox != null) {
-        						//return layerList[i].LatLonBoundingBox;
-        						var bounds = new google.maps.LatLngBounds(
-        							new google.maps.LatLng(layerList[i].LatLonBoundingBox[0], layerList[i].LatLonBoundingBox[1]),
-        							new google.maps.LatLng(layerList[i].LatLonBoundingBox[2], layerList[i].LatLonBoundingBox[3])
-        						);
+                    for (var i = 0; i < layerList.length; ++i) {
+                        if (layerList[i].Name == thisWms.params['layers']) {
+                            if (layerList[i].LatLonBoundingBox != null) {
+                                //return layerList[i].LatLonBoundingBox;
+                                var bounds = new google.maps.LatLngBounds(
+                                    new google.maps.LatLng(layerList[i].LatLonBoundingBox[0], layerList[i].LatLonBoundingBox[1]),
+                                    new google.maps.LatLng(layerList[i].LatLonBoundingBox[2], layerList[i].LatLonBoundingBox[3])
+                                );
 
-        						var center = bounds.getCenter();
+                                var center = bounds.getCenter();
 
-        						map.fitBounds(bounds);
-        						return;
-        					}
-        					else {
-        						console.log('boundaryError');
-        					}
-        				}
-        			}
-        		}
-        	}
+                                map.fitBounds(bounds);
+                                return;
+                            }
+                            else {
+                                console.log('boundaryError');
+                            }
+                        }
+                    }
+                }
+            }
         });*/
     };
-    this.zoomToWmsSwipe = function(map) { /*-------------------- Zooomtowms ชองหน้า Swipe map----------------*/
 
-            if (!this.params['layers'].length) {
-                console.log("[WmsMapType] Required param 'layers' is empty");
-                return;
-            }
-            var url = this.url + "?";
+    this.zoomToWmsSwipe = function (map) { /*-------------------- Zooomtowms ชองหน้า Swipe map----------------*/
 
-
-            url += "service=" + this.params['service'] + "&";
-            url += "version=" + this.params['version'] + "&";
-            url += "request=" + "GetCapabilities" + "&";
-
-            var isLayerNamespace = false;
-            if (this.params['layers'].indexOf(':') > -1) {
-                var tmpNamepace = this.params['layers'].split(':');
-                if (tmpNamepace.length > 1) {
-                    url += "namespace=" + tmpNamepace[0] + "&";
-                    isLayerNamespace = true;
-                }
-            }
-
-            if (!isLayerNamespace) {
-                url += "namespace=" + this.params['layers'] + "&";
-            }
-
-            if (this.options['cache'] == false) {
-                var date = new Date();
-                url += "&cache=" + date.getTime();
-            }
-
-            var thisWms = this;
-            url = encodeURIComponent(url);
+        if (!this.params['layers'].length) {
+            console.log("[WmsMapType] Required param 'layers' is empty");
+            return;
+        }
+        var url = this.url + "?";
 
 
-            //console.log(angular.element('#ang-controller').scope())
-            //console.log(url, this.params['layers'])
-            //$('#map-left').scope().GetWmsBoundary(url, this.params['layers']);
-            return {
-                url: url,
-                param: this.params['layers']
+        url += "service=" + this.params['service'] + "&";
+        url += "version=" + this.params['version'] + "&";
+        url += "request=" + "GetCapabilities" + "&";
+
+        var isLayerNamespace = false;
+        if (this.params['layers'].indexOf(':') > -1) {
+            var tmpNamepace = this.params['layers'].split(':');
+            if (tmpNamepace.length > 1) {
+                url += "namespace=" + tmpNamepace[0] + "&";
+                isLayerNamespace = true;
             }
         }
 
-
-        this.Arcgiswms =async function(map) {/*------------------------------------Arcgis wms addnew---------------------------*/
-            var url = this.url+this.params.layers+"/MapServer";
-            var agsType = await new gmaps.ags.MapType(url, {
-                name: this.name,
-                opacity: 1,
-            });
-            map.overlayMapTypes.insertAt(0, agsType);
-            this.ZoomToArcgis(map);
-
-        }
-        this.ZoomToArcgis = function(map) {/*------------------------------------Arcgis wms addnew---------------------------*/
-            /*   var svc = new gmaps.ags.MapService(`${url}`);
-              console.log(svc) */
-            // console.log(agsType.getTileLayers()[0].getMapService())
-            var url = this.url+this.params.layers+"/MapServer";
-            $.getJSON(`${url}/info/iteminfo?f=pjson`, function (result) {
-                let lat = result.extent[0][1];
-                let lng = result.extent[0][0];
-                let lat2 = result.extent[1][1];
-                let lng2 = result.extent[1][0];
-                var bounds = new google.maps.LatLngBounds();
-                var points = [
-                    new google.maps.LatLng(lat, lng),
-                    new google.maps.LatLng(lat2, lng2)
-                ];
-                // Extend bounds with each point
-                for (var i = 0; i < points.length; i++) {
-                    bounds.extend(points[i]);
-                    //new google.maps.Marker({ position: points[i], map: map });
-                }
-                /*  var pt = new google.maps.LatLng(lat,lng);
-                 bounds.extend(pt); */
-                map.fitBounds(bounds);
-            });
+        if (!isLayerNamespace) {
+            url += "namespace=" + this.params['layers'] + "&";
         }
 
-        /*---------------------------------------------------------------------------------------------------------------------*/
+        if (this.options['cache'] == false) {
+            var date = new Date();
+            url += "&cache=" + date.getTime();
+        }
 
-        /*
-         * ---------------
-         * Private methods
-         * ---------------
-         */
+        var thisWms = this;
+        url = encodeURIComponent(url);
+
+
+        //console.log(angular.element('#ang-controller').scope())
+        //console.log(url, this.params['layers'])
+        //$('#map-left').scope().GetWmsBoundary(url, this.params['layers']);
+        return {
+            url: url,
+            param: this.params['layers']
+        }
+    }
+
+
+    this.Arcgiswms = async function (map) {/*------------------------------------Arcgis wms addnew---------------------------*/
+        // var url = this.url+this.params.layers+"/MapServer";
+        var url = this.url;
+        var agsType = await new gmaps.ags.MapType(url, {
+            name: this.name,
+            opacity: 1,
+        });
+        map.overlayMapTypes.insertAt(0, agsType);
+        this.ZoomToArcgis(map);
+
+    }
+    this.ZoomToArcgis = function (map) {/*------------------------------------Arcgis wms addnew---------------------------*/
+        /*   var svc = new gmaps.ags.MapService(`${url}`);
+          console.log(svc) */
+        // console.log(agsType.getTileLayers()[0].getMapService())
+        // var url = this.url+this.params.layers+"/MapServer";
+        var url = this.url;
+        $.getJSON(`${url}/info/iteminfo?f=pjson`, function (result) {
+            let lat = result.extent[0][1];
+            let lng = result.extent[0][0];
+            let lat2 = result.extent[1][1];
+            let lng2 = result.extent[1][0];
+            var bounds = new google.maps.LatLngBounds();
+            var points = [
+                new google.maps.LatLng(lat, lng),
+                new google.maps.LatLng(lat2, lng2)
+            ];
+            // Extend bounds with each point
+            for (var i = 0; i < points.length; i++) {
+                bounds.extend(points[i]);
+                //new google.maps.Marker({ position: points[i], map: map });
+            }
+            /*  var pt = new google.maps.LatLng(lat,lng);
+             bounds.extend(pt); */
+            map.fitBounds(bounds);
+        });
+    }
+
+    /*---------------------------------------------------------------------------------------------------------------------*/
+
+    /*
+     * ---------------
+     * Private methods
+     * ---------------
+     */
 
     /*
      * Return the tile bounds for the given x, y, z values.
      */
 
-/*---------------------------------------------------------------------------------------------------------------------*/
+    /*---------------------------------------------------------------------------------------------------------------------*/
+    function GetWmsBoundary(url, layerName, map) {
+        if (url != null && url != "") {
+            var data = {};
+            data.url = url;
+            fetch("http://imis.md.go.th/IMIS_Service/api/Map/GetWmsBoundary",
+                {
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    },
+                    method: "POST",
+                    body: JSON.stringify(data)
+                })
+                .then(async function (res) {
+                    let html = await res.json();
+
+                    if (html != "" & html != null && html.indexOf('version') > -1) {
+                        var wmsData = new WMSCapabilities().parse(html);
+
+                        if (wmsData != null && wmsData.Capability != null && wmsData.Capability.Layer != null && wmsData.Capability.Layer.Layer != null) {
+                            var layerList = wmsData.Capability.Layer.Layer;
+
+                            for (var i = 0; i < layerList.length; ++i) {
+                                if (layerList[i].Name == layerName || layerList[i].Title == layerName) {
+                                    if (layerList[i].LatLonBoundingBox != null) {
+                                        //return layerList[i].LatLonBoundingBox;
+                                        var bounds = new google.maps.LatLngBounds(
+                                            new google.maps.LatLng(layerList[i].LatLonBoundingBox[1], layerList[i].LatLonBoundingBox[0]),
+                                            new google.maps.LatLng(layerList[i].LatLonBoundingBox[3], layerList[i].LatLonBoundingBox[2])
+                                        );
+
+                                        var center = bounds.getCenter();
+
+                                        map.fitBounds(bounds);
+                                        return;
+                                    } else {
+                                        console.log('boundaryError');
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }).catch(function (res) { console.log(res) });
+        }
+    }
+
     function getBounds(x, y, z) {
         y = Math.pow(2, z) - y - 1; // Translate Y value
 
