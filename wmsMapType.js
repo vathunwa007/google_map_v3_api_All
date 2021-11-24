@@ -315,25 +315,21 @@ function WmsMapType(name, url, params, options, type = "geoserver") {
      */
 
     /*---------------------------------------------------------------------------------------------------------------------*/
-    function GetWmsBoundary(url, layerName, map) {
+  function GetWmsBoundary(url, layerName, map) {
+
         if (url != null && url != "") {
+            let urlset = decodeURIComponent(url)
+            // urlset = urlset.replace(/^http:\/\//i, 'https://');
             var data = {};
             data.url = url;
-            fetch("http://imis.md.go.th/IMIS_Service/api/Map/GetWmsBoundary",
-                {
-                    headers: {
-                        'Accept': 'application/json',
-                        'Content-Type': 'application/json'
-                    },
-                    method: "POST",
-                    body: JSON.stringify(data)
-                })
-                .then(async function (res) {
-                    let html = await res.json();
 
+            var x = new XMLHttpRequest();
+            x.open("GET", urlset, true);
+            x.onreadystatechange = function () {
+                if (x.readyState == 4 && x.status == 200) {
+                    let html = x.response;
                     if (html != "" & html != null && html.indexOf('version') > -1) {
                         var wmsData = new WMSCapabilities().parse(html);
-
                         if (wmsData != null && wmsData.Capability != null && wmsData.Capability.Layer != null && wmsData.Capability.Layer.Layer != null) {
                             var layerList = wmsData.Capability.Layer.Layer;
 
@@ -357,7 +353,10 @@ function WmsMapType(name, url, params, options, type = "geoserver") {
                             }
                         }
                     }
-                }).catch(function (res) { console.log(res) });
+                }
+            };
+            x.send(null);
+
         }
     }
 
